@@ -10,13 +10,14 @@ import {
   MusicSearch,
 } from "./components";
 import { useAudioPlayer, usePlaylist } from "./hooks";
-import { createSongsFromFiles } from "./utils";
+import { Loader2, WifiOff, AlertCircle, HardDrive } from "lucide-react";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("home");
   const [newPlaylistName, setNewPlaylistName] = useState("");
   const [currentSongIndex, setCurrentSongIndex] = useState(null);
   const [unassignedSongs, setUnassignedSongs] = useState([]);
+  const [storageStats, setStorageStats] = useState(null);
 
   const {
     audioRef,
@@ -24,22 +25,29 @@ export default function App() {
     progress,
     duration,
     currentTime,
+    error: audioError,
+    isLoading: audioLoading,
     play,
     togglePlayPause,
     seek,
     setOnEnded,
+    clearError,
   } = useAudioPlayer();
 
   const {
     playlists,
     currentPlaylist,
+    isLoading: playlistLoading,
     createPlaylist,
     deletePlaylist,
     selectPlaylist,
     addSongsToPlaylist,
     addSingleSongToPlaylist,
+    addAudioFile,
+    saveForOffline,
     removeSongFromPlaylist,
     getCurrentPlaylistSongs,
+    getStorageStats,
   } = usePlaylist();
 
   // Get current songs (from playlist or unassigned)
@@ -51,17 +59,34 @@ export default function App() {
   const currentSong =
     currentSongIndex !== null ? currentSongs[currentSongIndex] : null;
 
-  // Handle file upload
+  // Load storage stats periodically
+  useEffect(() => {
+    const loadStats = async () => {
+      const stats = await getStorageStats();
+      setStorageStats(stats);
+    };
+    loadStats();
+    
+    // Refresh stats every 30 seconds
+    const interval = setInterval(loadStats, 30000);
+    return () => clearInterval(interval);
+  }, [getStorageStats, playlists]);
+
+  // Handle file upload - saves to IndexedDB
   const handleFileUpload = useCallback(
-    (files) => {
-      const newSongs = createSongsFromFiles(files);
-      if (currentPlaylist) {
-        addSongsToPlaylist(currentPlaylist, newSongs);
-      } else {
-        setUnassignedSongs((prev) => [...prev, ...newSongs]);
+    async (files) => {
+      for (const file of files) {
+        try {
+          const song = await addAudioFile(file, currentPlaylist);
+          if (!currentPlaylist) {
+            setUnassignedSongs((prev) => [...prev, song]);
+          }
+        } catch (error) {
+          console.error("Failed to add file:", error);
+        }
       }
     },
-    [currentPlaylist, addSongsToPlaylist]
+    [currentPlaylist, addAudioFile]
   );
 
   // Handle playlist creation
@@ -93,10 +118,11 @@ export default function App() {
 
   // Play a song by index
   const playSong = useCallback(
-    (index) => {
+    async (index) => {
       if (currentSongs[index]) {
         setCurrentSongIndex(index);
-        play(currentSongs[index].url);
+        // Pass the full song object to handle both blob and URL sources
+        await play(currentSongs[index]);
       }
     },
     [currentSongs, play]
@@ -171,95 +197,156 @@ export default function App() {
     [addSingleSongToPlaylist]
   );
 
+  // Handle saving song for offline from search
+  const handleSaveOffline = useCallback(
+    async (song, playlistName) => {
+      return await saveForOffline(song, playlistName);
+    },
+    [saveForOffline]
+  );
+
   // Render Home/Library content
-  const renderLibraryContent = () => (
-    <div className="flex flex-col lg:flex-row gap-8">
-      {/* Left Panel - Playlists & Songs */}
-      <div className="flex-1 space-y-6">
-        {/* Playlist Management */}
-        <div className="glass-card rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gradient">Your Playlists</h2>
-            <span className="text-sm text-gray-500">{Object.keys(playlists).length} playlists</span>
+  const renderLibraryContent = () => {
+    if (playlistLoading) {
+      return (
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <Loader2 size={48} className="mx-auto text-purple-500 animate-spin mb-4" />
+            <p className="text-gray-400">Loading your library...</p>
           </div>
-          <PlaylistForm
-            playlistName={newPlaylistName}
-            onChange={setNewPlaylistName}
-            onSubmit={handleCreatePlaylist}
-          />
-          <div className="mt-4">
-            <PlaylistList
-              playlists={playlists}
-              currentPlaylist={currentPlaylist}
-              onSelectPlaylist={handleSelectPlaylist}
-              onDeletePlaylist={handleDeletePlaylist}
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-col lg:flex-row gap-8">
+        {/* Left Panel - Playlists & Songs */}
+        <div className="flex-1 space-y-6">
+          {/* Storage Stats Banner */}
+          {storageStats && storageStats.audioFilesCount > 0 && (
+            <div className="glass-card rounded-xl p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center">
+                  <HardDrive size={20} className="text-cyan-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-300">Offline Storage</p>
+                  <p className="text-xs text-gray-500">
+                    {storageStats.audioFilesCount} files • {storageStats.totalSizeFormatted}
+                  </p>
+                </div>
+              </div>
+              <WifiOff size={16} className="text-green-400" />
+            </div>
+          )}
+
+          {/* Audio Error Banner */}
+          {audioError && (
+            <div className="glass-card rounded-xl p-4 border border-red-500/30 bg-red-500/10">
+              <div className="flex items-center gap-3">
+                <AlertCircle size={20} className="text-red-400" />
+                <div className="flex-1">
+                  <p className="text-sm text-red-300">{audioError}</p>
+                </div>
+                <button
+                  onClick={clearError}
+                  className="text-xs text-gray-400 hover:text-white"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Playlist Management */}
+          <div className="glass-card rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gradient">Your Playlists</h2>
+              <span className="text-sm text-gray-500">{Object.keys(playlists).length} playlists</span>
+            </div>
+            <PlaylistForm
+              playlistName={newPlaylistName}
+              onChange={setNewPlaylistName}
+              onSubmit={handleCreatePlaylist}
+            />
+            <div className="mt-4">
+              <PlaylistList
+                playlists={playlists}
+                currentPlaylist={currentPlaylist}
+                onSelectPlaylist={handleSelectPlaylist}
+                onDeletePlaylist={handleDeletePlaylist}
+              />
+            </div>
+          </div>
+
+          {/* Songs List */}
+          <div className="glass-card rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-gradient">
+                  {currentPlaylist ? currentPlaylist : "All Tracks"}
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  {currentSongs.length} {currentSongs.length === 1 ? 'track' : 'tracks'}
+                </p>
+              </div>
+              <FileUpload onUpload={handleFileUpload} />
+            </div>
+            <SongList
+              songs={currentSongs}
+              currentSongIndex={currentSongIndex}
+              isPlaying={isPlaying}
+              onPlaySong={playSong}
+              onDeleteSong={handleDeleteSong}
             />
           </div>
         </div>
 
-        {/* Songs List */}
-        <div className="glass-card rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-xl font-bold text-gradient">
-                {currentPlaylist ? currentPlaylist : "All Tracks"}
-              </h2>
-              <p className="text-sm text-gray-500 mt-1">
-                {currentSongs.length} {currentSongs.length === 1 ? 'track' : 'tracks'}
-              </p>
-            </div>
-            <FileUpload onUpload={handleFileUpload} />
-          </div>
-          <SongList
-            songs={currentSongs}
-            currentSongIndex={currentSongIndex}
-            isPlaying={isPlaying}
-            onPlaySong={playSong}
-            onDeleteSong={handleDeleteSong}
-          />
-        </div>
-      </div>
-
-      {/* Right Panel - Now Playing */}
-      <div className="lg:w-[420px]">
-        <div className="lg:sticky lg:top-24">
-          <NowPlaying
-            currentSong={currentSong}
-            isPlaying={isPlaying}
-            progress={progress}
-            duration={duration}
-            currentTime={currentTime}
-            onPlayPause={togglePlayPause}
-            onNext={playNext}
-            onPrevious={playPrevious}
-            onSeek={handleSeek}
-          />
-          
-          {/* Quick stats */}
-          <div className="mt-6 grid grid-cols-3 gap-4">
-            <div className="glass-card rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-gradient">{currentSongs.length}</p>
-              <p className="text-xs text-gray-500 mt-1">Tracks</p>
-            </div>
-            <div className="glass-card rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-gradient">{Object.keys(playlists).length}</p>
-              <p className="text-xs text-gray-500 mt-1">Playlists</p>
-            </div>
-            <div className="glass-card rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-gradient">∞</p>
-              <p className="text-xs text-gray-500 mt-1">Vibes</p>
+        {/* Right Panel - Now Playing */}
+        <div className="lg:w-[420px]">
+          <div className="lg:sticky lg:top-24">
+            <NowPlaying
+              currentSong={currentSong}
+              isPlaying={isPlaying}
+              progress={progress}
+              duration={duration}
+              currentTime={currentTime}
+              onPlayPause={togglePlayPause}
+              onNext={playNext}
+              onPrevious={playPrevious}
+              onSeek={handleSeek}
+              isLoading={audioLoading}
+            />
+            
+            {/* Quick stats */}
+            <div className="mt-6 grid grid-cols-3 gap-4">
+              <div className="glass-card rounded-xl p-4 text-center">
+                <p className="text-2xl font-bold text-gradient">{currentSongs.length}</p>
+                <p className="text-xs text-gray-500 mt-1">Tracks</p>
+              </div>
+              <div className="glass-card rounded-xl p-4 text-center">
+                <p className="text-2xl font-bold text-gradient">{Object.keys(playlists).length}</p>
+                <p className="text-xs text-gray-500 mt-1">Playlists</p>
+              </div>
+              <div className="glass-card rounded-xl p-4 text-center">
+                <p className="text-2xl font-bold text-gradient">
+                  {currentSongs.filter(s => s.isOffline).length}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">Offline</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Render Search content
   const renderSearchContent = () => (
     <div className="max-w-4xl mx-auto">
       <MusicSearch
         onAddToPlaylist={handleAddFromSearch}
+        onSaveOffline={handleSaveOffline}
         playlists={playlists}
         currentPlaylist={currentPlaylist}
       />

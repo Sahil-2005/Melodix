@@ -1,5 +1,5 @@
 import React from "react";
-import { Trash2, Play, Pause } from "lucide-react";
+import { Trash2, Play, Pause, WifiOff, Globe } from "lucide-react";
 
 export default function SongItem({
   song,
@@ -12,6 +12,14 @@ export default function SongItem({
   const handleDelete = (e) => {
     e.stopPropagation();
     onDelete();
+  };
+
+  // Format duration if available
+  const formatDuration = (seconds) => {
+    if (!seconds) return "--:--";
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   return (
@@ -51,16 +59,27 @@ export default function SongItem({
       
       {/* Song info */}
       <div className="flex-1 min-w-0">
-        <p className={`font-medium truncate ${isActive ? "text-white" : "text-gray-300 group-hover:text-white"} transition-colors duration-200`} title={song.name}>
-          {song.name}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className={`font-medium truncate ${isActive ? "text-white" : "text-gray-300 group-hover:text-white"} transition-colors duration-200`} title={song.name}>
+            {song.name}
+          </p>
+          {/* Offline/Online indicator */}
+          {song.isOffline ? (
+            <WifiOff size={12} className="text-green-400 flex-shrink-0" title="Available offline" />
+          ) : song.isFromSearch && (
+            <Globe size={12} className="text-blue-400 flex-shrink-0" title="Streaming" />
+          )}
+        </div>
         <p className="text-xs text-gray-500 truncate">
-          {song.originalName || "Unknown artist"}
+          {song.artist || song.originalName || "Unknown artist"}
+          {song.source && <span className="text-gray-600"> • {song.source}</span>}
         </p>
       </div>
       
-      {/* Duration placeholder */}
-      <span className="text-sm text-gray-500 hidden sm:block">--:--</span>
+      {/* Duration */}
+      <span className="text-sm text-gray-500 hidden sm:block">
+        {formatDuration(song.duration)}
+      </span>
       
       {/* Delete button */}
       <button
