@@ -205,6 +205,31 @@ export default function App() {
     [saveForOffline]
   );
 
+  // Handle playing song directly from search
+  const handlePlayFromSearch = useCallback(
+    (song) => {
+      console.log("[App] Playing song from search:", song.name);
+      // Play the song directly in the main player
+      play(song.url);
+      // Store the song info for display in NowPlaying
+      // Since this isn't in a playlist, we track it separately
+      setUnassignedSongs((prev) => {
+        // Check if song already exists
+        const exists = prev.some(s => s.jamendoId === song.jamendoId);
+        if (!exists) {
+          const newSongs = [...prev, song];
+          setCurrentSongIndex(newSongs.length - 1);
+          return newSongs;
+        } else {
+          const index = prev.findIndex(s => s.jamendoId === song.jamendoId);
+          setCurrentSongIndex(index);
+          return prev;
+        }
+      });
+    },
+    [play]
+  );
+
   // Render Home/Library content
   const renderLibraryContent = () => {
     if (playlistLoading) {
@@ -347,6 +372,9 @@ export default function App() {
       <MusicSearch
         onAddToPlaylist={handleAddFromSearch}
         onSaveOffline={handleSaveOffline}
+        onPlaySong={handlePlayFromSearch}
+        currentlyPlaying={currentSong}
+        isPlaying={isPlaying}
         playlists={playlists}
         currentPlaylist={currentPlaylist}
       />

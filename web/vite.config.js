@@ -14,6 +14,13 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api\/jamendo/, ''),
         secure: true,
       },
+      // Proxy iTunes Search API (no CORS issues but keeping for consistency)
+      '/api/itunes': {
+        target: 'https://itunes.apple.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/itunes/, ''),
+        secure: true,
+      },
     },
   },
 });

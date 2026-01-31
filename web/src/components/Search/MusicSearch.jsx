@@ -1,10 +1,13 @@
-import React, { useState, useCallback } from "react";
-import { Search, Play, Plus, Download, Loader2, Music, ExternalLink, X, WifiOff, Check, Pause } from "lucide-react";
+import React, { useState, useCallback, useEffect } from "react";
+import { Search, Play, Plus, Download, Loader2, Music, ExternalLink, X, WifiOff, Check, Pause, Volume2, AlertTriangle } from "lucide-react";
 
-// Jamendo API - Free music API
-// Using Vite proxy to bypass CORS issues in development
+// iTunes Search API - Very reliable, no rate limits, 30-second previews
+// Note: iTunes API has CORS enabled, but we use proxy for consistency
+const ITUNES_API_BASE = "/api/itunes";
+
+// Jamendo API as fallback (may hit rate limits)
 const JAMENDO_API_BASE = "/api/jamendo/v3.0";
-const JAMENDO_CLIENT_ID = "b6747d04"; // Public client ID
+const JAMENDO_CLIENT_ID = "b6747d04";
 
 const formatDuration = (seconds) => {
   const mins = Math.floor(seconds / 60);
@@ -12,7 +15,15 @@ const formatDuration = (seconds) => {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 };
 
-export default function MusicSearch({ onAddToPlaylist, onSaveOffline, playlists, currentPlaylist }) {
+export default function MusicSearch({ 
+  onAddToPlaylist, 
+  onSaveOffline, 
+  onPlaySong,           // New: Play song in main player
+  currentlyPlaying,     // New: Currently playing song info
+  isPlaying,            // New: Is main player playing
+  playlists, 
+  currentPlaylist 
+}) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -23,7 +34,16 @@ export default function MusicSearch({ onAddToPlaylist, onSaveOffline, playlists,
   const [downloadingTracks, setDownloadingTracks] = useState(new Set());
   const [savedTracks, setSavedTracks] = useState(new Set());
 
-  // Search Jamendo API for music
+  // Stop preview when main player starts
+  useEffect(() => {
+    if (isPlaying && previewAudio) {
+      previewAudio.pause();
+      setPreviewTrack(null);
+      setPreviewAudio(null);
+    }
+  }, [isPlaying, previewAudio]);
+
+  // Search iTunes API for music (primary - very reliable)
   const searchMusic = useCallback(async (searchQuery) => {
     if (!searchQuery.trim()) {
       setResults([]);
@@ -34,45 +54,47 @@ export default function MusicSearch({ onAddToPlaylist, onSaveOffline, playlists,
     setError(null);
 
     try {
-      // Using Vite proxy to bypass CORS
+      // Use iTunes Search API (very reliable, no rate limits)
       const response = await fetch(
-        `${JAMENDO_API_BASE}/tracks/?client_id=${JAMENDO_CLIENT_ID}&format=json&limit=20&search=${encodeURIComponent(searchQuery)}&include=musicinfo&audioformat=mp32`
+        `${ITUNES_API_BASE}/search?term=${encodeURIComponent(searchQuery)}&media=music&entity=song&limit=25`
       );
       
       if (!response.ok) {
         throw new Error(`API request failed: ${response.status}`);
       }
-
+      
       const data = await response.json();
       
-      if (data.headers?.status === "success" && data.results) {
-        const tracks = data.results.map(track => ({
-          id: track.id,
-          name: track.name,
-          artist: track.artist_name,
-          artistId: track.artist_id,
-          duration: track.duration,
-          image: track.image || `https://via.placeholder.com/200/1a1a2e/8b5cf6?text=${encodeURIComponent(track.name.charAt(0))}`,
-          audio: track.audio, // MP3 streaming URL
-          audioDownload: track.audiodownload || track.audio, // Download URL
-          license: track.license_ccurl,
-          source: "Jamendo",
-          album: track.album_name,
-          releaseDate: track.releasedate,
-        }));
+      if (data.results && data.results.length > 0) {
+        const tracks = data.results
+          .filter(track => track.previewUrl) // Only include tracks with previews
+          .map(track => ({
+            id: `itunes_${track.trackId}`,
+            name: track.trackName,
+            artist: track.artistName,
+            artistId: track.artistId,
+            duration: Math.floor(track.trackTimeMillis / 1000), // Convert ms to seconds
+            image: track.artworkUrl100?.replace('100x100', '200x200') || track.artworkUrl60,
+            audio: track.previewUrl, // 30 second preview URL
+            audioDownload: track.previewUrl,
+            source: "iTunes",
+            album: track.collectionName,
+            genre: track.primaryGenreName,
+            releaseDate: track.releaseDate,
+            isPreviewOnly: true, // iTunes provides ~30s previews
+          }));
         
-        setResults(tracks);
-        
-        if (tracks.length === 0) {
-          setError("No results found. Try a different search term.");
+        if (tracks.length > 0) {
+          setResults(tracks);
+          return;
         }
-      } else {
-        throw new Error(data.headers?.error_message || "Unknown API error");
       }
+      
+      // No results found
+      setError("No results found. Try a different search term.");
     } catch (err) {
       console.error("Search error:", err);
       
-      // Provide helpful error messages
       if (err.message.includes("Failed to fetch")) {
         setError("Network error. Please check your internet connection.");
       } else {
@@ -83,48 +105,49 @@ export default function MusicSearch({ onAddToPlaylist, onSaveOffline, playlists,
     }
   }, []);
 
-  // Get popular/featured tracks
+  // Get popular/featured tracks using iTunes
   const getPopularTracks = useCallback(async (tag = "") => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const params = new URLSearchParams({
-        client_id: JAMENDO_CLIENT_ID,
-        format: "json",
-        limit: "20",
-        include: "musicinfo",
-        audioformat: "mp32",
-        order: "popularity_week",
-      });
-
-      if (tag) {
-        params.append("tags", tag.toLowerCase());
-      }
-
-      const response = await fetch(`${JAMENDO_API_BASE}/tracks/?${params}`);
+      // Use iTunes search with genre or popular terms
+      const searchTerm = tag || "top hits 2024";
+      const response = await fetch(
+        `${ITUNES_API_BASE}/search?term=${encodeURIComponent(searchTerm)}&media=music&entity=song&limit=25`
+      );
       
       if (!response.ok) {
         throw new Error(`API request failed: ${response.status}`);
       }
-
+      
       const data = await response.json();
       
-      if (data.headers?.status === "success" && data.results) {
-        setResults(data.results.map(track => ({
-          id: track.id,
-          name: track.name,
-          artist: track.artist_name,
-          artistId: track.artist_id,
-          duration: track.duration,
-          image: track.image || `https://via.placeholder.com/200/1a1a2e/8b5cf6?text=${encodeURIComponent(track.name.charAt(0))}`,
-          audio: track.audio,
-          audioDownload: track.audiodownload || track.audio,
-          license: track.license_ccurl,
-          source: "Jamendo",
-          album: track.album_name,
-        })));
+      if (data.results && data.results.length > 0) {
+        const tracks = data.results
+          .filter(track => track.previewUrl)
+          .map(track => ({
+            id: `itunes_${track.trackId}`,
+            name: track.trackName,
+            artist: track.artistName,
+            artistId: track.artistId,
+            duration: Math.floor(track.trackTimeMillis / 1000),
+            image: track.artworkUrl100?.replace('100x100', '200x200') || track.artworkUrl60,
+            audio: track.previewUrl,
+            audioDownload: track.previewUrl,
+            source: "iTunes",
+            album: track.collectionName,
+            genre: track.primaryGenreName,
+            isPreviewOnly: true,
+          }));
+        
+        if (tracks.length > 0) {
+          setResults(tracks);
+          return;
+        }
       }
+      
+      setError("No popular tracks available. Try searching for something specific.");
     } catch (err) {
       console.error("Failed to get popular tracks:", err);
       setError("Failed to load popular tracks.");
@@ -168,6 +191,40 @@ export default function MusicSearch({ onAddToPlaylist, onSaveOffline, playlists,
     };
   };
 
+  // Play track in main player (not preview)
+  const handlePlayInMainPlayer = (track) => {
+    // Stop any preview first
+    if (previewAudio) {
+      previewAudio.pause();
+      setPreviewTrack(null);
+      setPreviewAudio(null);
+    }
+
+    const song = {
+      url: track.audio,
+      name: track.name,
+      artist: track.artist,
+      duration: track.duration,
+      image: track.image,
+      source: track.source,
+      type: 'remote',          // Mark as remote URL (won't break on refresh)
+      isFromSearch: true,
+      isOffline: false,
+      jamendoId: track.id,
+      license: track.license,
+      album: track.album,
+    };
+    
+    if (onPlaySong) {
+      onPlaySong(song);
+    }
+  };
+
+  // Check if this track is currently playing in main player
+  const isTrackPlaying = (track) => {
+    return isPlaying && currentlyPlaying?.jamendoId === track.id;
+  };
+
   const handleAddToPlaylist = (track, playlistName) => {
     const song = {
       url: track.audio,
@@ -176,6 +233,7 @@ export default function MusicSearch({ onAddToPlaylist, onSaveOffline, playlists,
       duration: track.duration,
       image: track.image,
       source: track.source,
+      type: 'remote',          // Mark as remote URL (persists correctly)
       isFromSearch: true,
       isOffline: false,
       jamendoId: track.id,
@@ -328,7 +386,9 @@ export default function MusicSearch({ onAddToPlaylist, onSaveOffline, playlists,
               <div
                 key={track.id}
                 className={`group relative flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 ${
-                  previewTrack?.id === track.id
+                  isTrackPlaying(track)
+                    ? "bg-gradient-to-r from-green-500/20 to-cyan-500/20 border border-green-500/30"
+                    : previewTrack?.id === track.id
                     ? "bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30"
                     : "glass-card hover:bg-white/10"
                 }`}
@@ -343,12 +403,18 @@ export default function MusicSearch({ onAddToPlaylist, onSaveOffline, playlists,
                       e.target.src = `https://via.placeholder.com/200/1a1a2e/8b5cf6?text=${encodeURIComponent(track.name.charAt(0))}`;
                     }}
                   />
+                  {/* Play in Main Player button */}
                   <button
-                    onClick={() => handlePreview(track)}
-                    className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    onClick={() => handlePlayInMainPlayer(track)}
+                    className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
+                      isTrackPlaying(track) 
+                        ? "bg-black/50 opacity-100" 
+                        : "bg-black/50 opacity-0 group-hover:opacity-100"
+                    }`}
+                    title="Play in main player"
                   >
-                    {previewTrack?.id === track.id ? (
-                      <Pause size={24} className="text-white" fill="white" />
+                    {isTrackPlaying(track) ? (
+                      <Volume2 size={24} className="text-green-400 animate-pulse" />
                     ) : (
                       <Play size={24} className="text-white" fill="white" />
                     )}
@@ -357,12 +423,35 @@ export default function MusicSearch({ onAddToPlaylist, onSaveOffline, playlists,
 
                 {/* Track Info */}
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-semibold text-white truncate">{track.name}</h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-semibold text-white truncate">{track.name}</h4>
+                    {isTrackPlaying(track) && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/20 text-xs text-green-400">
+                        <Volume2 size={10} className="animate-pulse" />
+                        Playing
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-400 truncate">{track.artist}</p>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span className="text-xs text-gray-500">{formatDuration(track.duration)}</span>
                     <span className="text-xs text-gray-600">•</span>
-                    <span className="text-xs text-purple-400">{track.source}</span>
+                    <span className={`text-xs ${track.source === "iTunes" ? "text-pink-400" : "text-purple-400"}`}>{track.source}</span>
+                    {track.isPreviewOnly && (
+                      <>
+                        <span className="text-xs text-gray-600">•</span>
+                        <span className="inline-flex items-center gap-1 text-xs text-yellow-400">
+                          <AlertTriangle size={10} />
+                          30s preview
+                        </span>
+                      </>
+                    )}
+                    {track.genre && (
+                      <>
+                        <span className="text-xs text-gray-600">•</span>
+                        <span className="text-xs text-cyan-400">{track.genre}</span>
+                      </>
+                    )}
                     {track.album && (
                       <>
                         <span className="text-xs text-gray-600">•</span>
@@ -380,6 +469,22 @@ export default function MusicSearch({ onAddToPlaylist, onSaveOffline, playlists,
 
                 {/* Actions */}
                 <div className="flex items-center gap-2">
+                  {/* Preview Button */}
+                  <button
+                    onClick={() => handlePreview(track)}
+                    className={`p-3 rounded-xl transition-all duration-200 ${
+                      previewTrack?.id === track.id
+                        ? "bg-purple-500/30 text-purple-300"
+                        : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                    }`}
+                    title={previewTrack?.id === track.id ? "Stop preview" : "Quick preview"}
+                  >
+                    {previewTrack?.id === track.id ? (
+                      <Pause size={18} />
+                    ) : (
+                      <Volume2 size={18} />
+                    )}
+                  </button>
                   {/* Add to Playlist */}
                   <div className="relative">
                     <button
@@ -500,14 +605,15 @@ export default function MusicSearch({ onAddToPlaylist, onSaveOffline, playlists,
       {/* Info Card */}
       <div className="glass-card rounded-2xl p-6 mt-8">
         <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center flex-shrink-0">
-            <ExternalLink size={20} className="text-cyan-400" />
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500/20 to-purple-500/20 flex items-center justify-center flex-shrink-0">
+            <Music size={20} className="text-pink-400" />
           </div>
           <div>
             <h4 className="font-semibold text-white mb-1">About Music Search</h4>
             <p className="text-sm text-gray-400 leading-relaxed">
-              Powered by <span className="text-purple-400">Jamendo</span> - all tracks are free for personal use under Creative Commons licenses. 
-              <span className="text-cyan-400 ml-1">Save offline</span> to store tracks in your browser and play without internet.
+              Powered by <span className="text-pink-400">iTunes</span>. 
+              All tracks are <span className="text-yellow-400">~30 second previews</span>. 
+              <span className="text-cyan-400 ml-1">Upload your own MP3 files</span> from the library tab for full-length playback.
             </p>
           </div>
         </div>
