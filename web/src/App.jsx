@@ -1,332 +1,386 @@
-// import React, { useState, useRef, useEffect } from "react";
-// import { Play, Pause, SkipForward, SkipBack, Plus, Trash } from "lucide-react";
-
-// export default function App() {
-//   const [songs, setSongs] = useState([]);
-//   const [playlists, setPlaylists] = useState({});
-//   const [currentPlaylist, setCurrentPlaylist] = useState(null);
-//   const [currentSongIndex, setCurrentSongIndex] = useState(0);
-//   const [isPlaying, setIsPlaying] = useState(false);
-//   const [newPlaylistName, setNewPlaylistName] = useState("");
-//   const [progress, setProgress] = useState(0);
-//   const audioRef = useRef(null);
-
-//   const handleFileUpload = (event) => {
-//     const files = Array.from(event.target.files);
-//     const newSongs = files.map((file) => ({ url: URL.createObjectURL(file), name: file.name }));
-//     if (currentPlaylist) {
-//       setPlaylists((prev) => ({
-//         ...prev,
-//         [currentPlaylist]: [...(prev[currentPlaylist] || []), ...newSongs],
-//       }));
-//     } else {
-//       setSongs((prev) => [...prev, ...newSongs]);
-//     }
-//   };
-
-//   const createPlaylist = () => {
-//     if (newPlaylistName && !playlists[newPlaylistName]) {
-//       setPlaylists((prev) => ({ ...prev, [newPlaylistName]: [] }));
-//       setNewPlaylistName("");
-//     }
-//   };
-
-//   const deletePlaylist = (playlistName) => {
-//     const updatedPlaylists = { ...playlists };
-//     delete updatedPlaylists[playlistName];
-//     setPlaylists(updatedPlaylists);
-//     if (currentPlaylist === playlistName) setCurrentPlaylist(null);
-//   };
-
-//   const deleteSong = (index) => {
-//     if (!currentPlaylist) return;
-//     const updatedSongs = [...playlists[currentPlaylist]];
-//     updatedSongs.splice(index, 1);
-//     setPlaylists((prev) => ({ ...prev, [currentPlaylist]: updatedSongs }));
-//     if (currentSongIndex === index) {
-//       setCurrentSongIndex(0);
-//       setIsPlaying(false);
-//     }
-//   };
-
-//   const playSong = (index) => {
-//     setCurrentSongIndex(index);
-//     setIsPlaying(true);
-//     if (audioRef.current) {
-//       audioRef.current.src = (currentPlaylist ? playlists[currentPlaylist] : songs)[index].url;
-//       audioRef.current.play();
-//     }
-//   };
-
-//   const playNext = () => {
-//     if (!currentPlaylist) return;
-//     const nextIndex = (currentSongIndex + 1) % playlists[currentPlaylist].length;
-//     playSong(nextIndex);
-//   };
-
-//   const playPrevious = () => {
-//     if (!currentPlaylist) return;
-//     const prevIndex = (currentSongIndex - 1 + playlists[currentPlaylist].length) % playlists[currentPlaylist].length;
-//     playSong(prevIndex);
-//   };
-
-//   const togglePlayPause = () => {
-//     if (audioRef.current.paused) {
-//       audioRef.current.play();
-//       setIsPlaying(true);
-//     } else {
-//       audioRef.current.pause();
-//       setIsPlaying(false);
-//     }
-//   };
-
-//   useEffect(() => {
-//     const updateProgress = () => {
-//       if (audioRef.current) {
-//         setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100);
-//       }
-//     };
-//     audioRef.current?.addEventListener("timeupdate", updateProgress);
-//     return () => audioRef.current?.removeEventListener("timeupdate", updateProgress);
-//   }, []);
-
-//   const handleSeek = (e) => {
-//     if (audioRef.current) {
-//       const newTime = (e.target.value / 100) * audioRef.current.duration;
-//       audioRef.current.currentTime = newTime;
-//       setProgress(e.target.value);
-//     }
-//   };
-
-//   return (
-//     <div className="flex flex-col items-center p-6 bg-base-200 min-h-screen w-full">
-//       <h1 className="text-3xl font-extrabold mb-6 text-center">🎵 React Music Player</h1>
-      
-//       {/* Playlist Management */}
-//       <div className="flex gap-2 mb-4">
-//         <input type="text" placeholder="New Playlist" value={newPlaylistName} onChange={(e) => setNewPlaylistName(e.target.value)} className="input input-bordered" />
-//         <button className="btn btn-primary" onClick={createPlaylist}><Plus size={20} /></button>
-//       </div>
-      
-//       <div className="flex flex-wrap gap-4 mb-4">
-//         {Object.keys(playlists).map((playlist) => (
-//           <div key={playlist} className="badge badge-lg badge-secondary cursor-pointer" onClick={() => setCurrentPlaylist(playlist)}>
-//             {playlist}
-//             <button className="ml-2" onClick={() => deletePlaylist(playlist)}><Trash size={16} /></button>
-//           </div>
-//         ))}
-//       </div>
-      
-//       <label className="btn btn-primary">
-//         Upload Music
-//         <input type="file" multiple accept="audio/*" onChange={handleFileUpload} className="hidden" />
-//       </label>
-      
-//       <ul className="w-full max-w-md mt-6 bg-base-100 p-4 rounded-lg shadow-lg">
-//         {(currentPlaylist ? playlists[currentPlaylist] : songs).map((song, index) => (
-//           <li key={index} className="flex justify-between p-2 my-2 rounded-lg cursor-pointer transition bg-base-300 hover:bg-primary hover:text-white">
-//             <span onClick={() => playSong(index)}>{song.name}</span>
-//             <button onClick={() => deleteSong(index)}><Trash size={16} /></button>
-//           </li>
-//         ))}
-//       </ul>
-      
-//       <input type="range" value={progress} onChange={handleSeek} className="w-full max-w-md mt-4" />
-      
-//       <div className="flex items-center gap-4 mt-6 bg-base-100 p-4 rounded-lg shadow-lg">
-//         <button className="btn btn-outline" onClick={playPrevious}><SkipBack size={24} /></button>
-//         <button className="btn btn-outline" onClick={togglePlayPause}>{isPlaying ? <Pause size={24} /> : <Play size={24} />}</button>
-//         <button className="btn btn-outline" onClick={playNext}><SkipForward size={24} /></button>
-//       </div>
-      
-//       <audio ref={audioRef} controls className="hidden" />
-//     </div>
-//   );
-// }
-
-
-
-
-import React, { useState, useRef, useEffect } from "react";
-import { Play, Pause, SkipForward, SkipBack, Plus, Trash } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  Header,
+  FileUpload,
+  PlaylistForm,
+  PlaylistList,
+  SongList,
+  NowPlaying,
+  Navbar,
+  MusicSearch,
+} from "./components";
+import { useAudioPlayer, usePlaylist } from "./hooks";
+import { createSongsFromFiles } from "./utils";
 
 export default function App() {
-  const [songs, setSongs] = useState([]);
-  const [playlists, setPlaylists] = useState({});
-  const [currentPlaylist, setCurrentPlaylist] = useState(null);
-  const [currentSongIndex, setCurrentSongIndex] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [activeTab, setActiveTab] = useState("home");
   const [newPlaylistName, setNewPlaylistName] = useState("");
-  const [progress, setProgress] = useState(0);
-  const audioRef = useRef(null);
+  const [currentSongIndex, setCurrentSongIndex] = useState(null);
+  const [unassignedSongs, setUnassignedSongs] = useState([]);
 
-  const handleFileUpload = (event) => {
-    const files = Array.from(event.target.files);
-    const newSongs = files.map((file) => ({ url: URL.createObjectURL(file), name: file.name }));
-    if (currentPlaylist) {
-      setPlaylists((prev) => ({
-        ...prev,
-        [currentPlaylist]: [...(prev[currentPlaylist] || []), ...newSongs],
-      }));
-    } else {
-      setSongs((prev) => [...prev, ...newSongs]);
-    }
-  };
+  const {
+    audioRef,
+    isPlaying,
+    progress,
+    duration,
+    currentTime,
+    play,
+    togglePlayPause,
+    seek,
+    setOnEnded,
+  } = useAudioPlayer();
 
-  const createPlaylist = () => {
-    if (newPlaylistName && !playlists[newPlaylistName]) {
-      setPlaylists((prev) => ({ ...prev, [newPlaylistName]: [] }));
+  const {
+    playlists,
+    currentPlaylist,
+    createPlaylist,
+    deletePlaylist,
+    selectPlaylist,
+    addSongsToPlaylist,
+    addSingleSongToPlaylist,
+    removeSongFromPlaylist,
+    getCurrentPlaylistSongs,
+  } = usePlaylist();
+
+  // Get current songs (from playlist or unassigned)
+  const currentSongs = currentPlaylist
+    ? getCurrentPlaylistSongs()
+    : unassignedSongs;
+
+  // Get current song object
+  const currentSong =
+    currentSongIndex !== null ? currentSongs[currentSongIndex] : null;
+
+  // Handle file upload
+  const handleFileUpload = useCallback(
+    (files) => {
+      const newSongs = createSongsFromFiles(files);
+      if (currentPlaylist) {
+        addSongsToPlaylist(currentPlaylist, newSongs);
+      } else {
+        setUnassignedSongs((prev) => [...prev, ...newSongs]);
+      }
+    },
+    [currentPlaylist, addSongsToPlaylist]
+  );
+
+  // Handle playlist creation
+  const handleCreatePlaylist = useCallback(() => {
+    if (createPlaylist(newPlaylistName)) {
       setNewPlaylistName("");
     }
-  };
+  }, [newPlaylistName, createPlaylist]);
 
-  // const deletePlaylist = (playlistName) => {
-  //   const updatedPlaylists = { ...playlists };
-  //   delete updatedPlaylists[playlistName];
-  //   setPlaylists(updatedPlaylists);
-  //   if (currentPlaylist === playlistName) {
-  //     setCurrentPlaylist(null);
-  //     setCurrentSongIndex(null);
-  //   }
-  // };
-
-
-  const deletePlaylist = (playlistName) => {
-    setPlaylists((prev) => {
-      const updatedPlaylists = { ...prev };
-      delete updatedPlaylists[playlistName];
-      return updatedPlaylists;
-    });
-  
-    if (currentPlaylist === playlistName) {
-      setCurrentPlaylist(null);
-      setCurrentSongIndex(null);
-    }
-  };
-  
-
-  const deleteSong = (index) => {
-    if (!currentPlaylist) return;
-    const updatedSongs = [...playlists[currentPlaylist]];
-    updatedSongs.splice(index, 1);
-    setPlaylists((prev) => ({ ...prev, [currentPlaylist]: updatedSongs }));
-    if (currentSongIndex === index) {
-      playNext();
-    }
-  };
-
-  const playSong = (index) => {
-    setCurrentSongIndex(index);
-    setIsPlaying(true);
-    if (audioRef.current) {
-      audioRef.current.src = (currentPlaylist ? playlists[currentPlaylist] : songs)[index].url;
-      audioRef.current.play();
-    }
-  };
-
-  const playNext = () => {
-    if (!currentPlaylist) return;
-    const nextIndex = (currentSongIndex + 1) % playlists[currentPlaylist].length;
-    playSong(nextIndex);
-  };
-
-  const playPrevious = () => {
-    if (!currentPlaylist) return;
-    const prevIndex = (currentSongIndex - 1 + playlists[currentPlaylist].length) % playlists[currentPlaylist].length;
-    playSong(prevIndex);
-  };
-
-  const togglePlayPause = () => {
-    if (audioRef.current.paused) {
-      audioRef.current.play();
-      setIsPlaying(true);
-    } else {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    }
-  };
-
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.onended = playNext;
-    }
-  }, [currentSongIndex]);
-
-  useEffect(() => {
-    const updateProgress = () => {
-      if (audioRef.current) {
-        setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100);
+  // Handle playlist deletion
+  const handleDeletePlaylist = useCallback(
+    (name) => {
+      deletePlaylist(name);
+      if (currentPlaylist === name) {
+        setCurrentSongIndex(null);
       }
-    };
-    audioRef.current?.addEventListener("timeupdate", updateProgress);
-    return () => audioRef.current?.removeEventListener("timeupdate", updateProgress);
-  }, []);
+    },
+    [deletePlaylist, currentPlaylist]
+  );
 
-  const handleSeek = (e) => {
-    if (audioRef.current) {
-      const newTime = (e.target.value / 100) * audioRef.current.duration;
-      audioRef.current.currentTime = newTime;
-      setProgress(e.target.value);
+  // Handle playlist selection
+  const handleSelectPlaylist = useCallback(
+    (name) => {
+      selectPlaylist(name);
+      setCurrentSongIndex(null);
+    },
+    [selectPlaylist]
+  );
+
+  // Play a song by index
+  const playSong = useCallback(
+    (index) => {
+      if (currentSongs[index]) {
+        setCurrentSongIndex(index);
+        play(currentSongs[index].url);
+      }
+    },
+    [currentSongs, play]
+  );
+
+  // Play next song
+  const playNext = useCallback(() => {
+    if (currentSongs.length === 0) return;
+    const nextIndex = ((currentSongIndex ?? -1) + 1) % currentSongs.length;
+    playSong(nextIndex);
+  }, [currentSongs, currentSongIndex, playSong]);
+
+  // Play previous song
+  const playPrevious = useCallback(() => {
+    if (currentSongs.length === 0) return;
+    const prevIndex =
+      ((currentSongIndex ?? 0) - 1 + currentSongs.length) % currentSongs.length;
+    playSong(prevIndex);
+  }, [currentSongs, currentSongIndex, playSong]);
+
+  // Handle song deletion
+  const handleDeleteSong = useCallback(
+    (index) => {
+      if (currentPlaylist) {
+        removeSongFromPlaylist(currentPlaylist, index);
+      } else {
+        setUnassignedSongs((prev) => {
+          const updated = [...prev];
+          updated.splice(index, 1);
+          return updated;
+        });
+      }
+
+      // Adjust current song index if needed
+      if (currentSongIndex === index) {
+        if (currentSongs.length > 1) {
+          playNext();
+        } else {
+          setCurrentSongIndex(null);
+        }
+      } else if (currentSongIndex !== null && index < currentSongIndex) {
+        setCurrentSongIndex((prev) => prev - 1);
+      }
+    },
+    [
+      currentPlaylist,
+      removeSongFromPlaylist,
+      currentSongIndex,
+      currentSongs.length,
+      playNext,
+    ]
+  );
+
+  // Handle seek
+  const handleSeek = useCallback(
+    (e) => {
+      seek(Number(e.target.value));
+    },
+    [seek]
+  );
+
+  // Set up auto-play next on song end
+  useEffect(() => {
+    setOnEnded(playNext);
+  }, [setOnEnded, playNext]);
+
+  // Handle adding song from search
+  const handleAddFromSearch = useCallback(
+    (song, playlistName) => {
+      addSingleSongToPlaylist(song, playlistName);
+    },
+    [addSingleSongToPlaylist]
+  );
+
+  // Render Home/Library content
+  const renderLibraryContent = () => (
+    <div className="flex flex-col lg:flex-row gap-8">
+      {/* Left Panel - Playlists & Songs */}
+      <div className="flex-1 space-y-6">
+        {/* Playlist Management */}
+        <div className="glass-card rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-gradient">Your Playlists</h2>
+            <span className="text-sm text-gray-500">{Object.keys(playlists).length} playlists</span>
+          </div>
+          <PlaylistForm
+            playlistName={newPlaylistName}
+            onChange={setNewPlaylistName}
+            onSubmit={handleCreatePlaylist}
+          />
+          <div className="mt-4">
+            <PlaylistList
+              playlists={playlists}
+              currentPlaylist={currentPlaylist}
+              onSelectPlaylist={handleSelectPlaylist}
+              onDeletePlaylist={handleDeletePlaylist}
+            />
+          </div>
+        </div>
+
+        {/* Songs List */}
+        <div className="glass-card rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-gradient">
+                {currentPlaylist ? currentPlaylist : "All Tracks"}
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                {currentSongs.length} {currentSongs.length === 1 ? 'track' : 'tracks'}
+              </p>
+            </div>
+            <FileUpload onUpload={handleFileUpload} />
+          </div>
+          <SongList
+            songs={currentSongs}
+            currentSongIndex={currentSongIndex}
+            isPlaying={isPlaying}
+            onPlaySong={playSong}
+            onDeleteSong={handleDeleteSong}
+          />
+        </div>
+      </div>
+
+      {/* Right Panel - Now Playing */}
+      <div className="lg:w-[420px]">
+        <div className="lg:sticky lg:top-24">
+          <NowPlaying
+            currentSong={currentSong}
+            isPlaying={isPlaying}
+            progress={progress}
+            duration={duration}
+            currentTime={currentTime}
+            onPlayPause={togglePlayPause}
+            onNext={playNext}
+            onPrevious={playPrevious}
+            onSeek={handleSeek}
+          />
+          
+          {/* Quick stats */}
+          <div className="mt-6 grid grid-cols-3 gap-4">
+            <div className="glass-card rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-gradient">{currentSongs.length}</p>
+              <p className="text-xs text-gray-500 mt-1">Tracks</p>
+            </div>
+            <div className="glass-card rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-gradient">{Object.keys(playlists).length}</p>
+              <p className="text-xs text-gray-500 mt-1">Playlists</p>
+            </div>
+            <div className="glass-card rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-gradient">∞</p>
+              <p className="text-xs text-gray-500 mt-1">Vibes</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Render Search content
+  const renderSearchContent = () => (
+    <div className="max-w-4xl mx-auto">
+      <MusicSearch
+        onAddToPlaylist={handleAddFromSearch}
+        playlists={playlists}
+        currentPlaylist={currentPlaylist}
+      />
+    </div>
+  );
+
+  // Render content based on active tab
+  const renderContent = () => {
+    switch (activeTab) {
+      case "search":
+        return renderSearchContent();
+      case "library":
+      case "home":
+      default:
+        return renderLibraryContent();
     }
   };
 
   return (
-    // <div className="flex flex-col md:flex-row items-start p-6 bg-gradient-to-r from-blue-900 to-purple-800 text-white min-h-screen w-full">
-    <div className="flex flex-col md:flex-row items-start p-6 text-white bg-base-300 min-h-screen w-full">
-      <div className="w-full md:w-2/3">
-        <h1 className="text-4xl font-bold mb-6 text-center">🎵 Premium Music Player</h1>
-        <div className="flex gap-2 mb-4">
-          <input type="text" placeholder="New Playlist" value={newPlaylistName} onChange={(e) => setNewPlaylistName(e.target.value)} className="input input-bordered" />
-          <button className="btn btn-success" onClick={createPlaylist}><Plus size={20} /></button>
-        </div>
-        <div className="flex flex-wrap gap-4 mb-4 w-full">
-          {Object.keys(playlists).map((playlist) => (
-            <div key={playlist} className="badge badge-lg badge-secondary cursor-pointer w-full" onClick={() => setCurrentPlaylist(playlist)}>
-              {playlist}
-              <button className="ml-2 w-full cursor-pointer" onClick={() => deletePlaylist(playlist)}><Trash size={16} /></button>
-            </div>
-          ))}
-        </div>
-        <label className="btn btn-primary">
-          Upload Music
-          <input type="file" multiple accept="audio/*" onChange={handleFileUpload} className="hidden" />
-        </label>
-        {/* <ul className="w-full mt-6 bg-black p-4 rounded-lg shadow-lg"> */}
-        {/* <ul className="w-full max-w-md mt-6 bg-base-100 p-4 rounded-lg shadow-lg">
+    <div className="min-h-screen bg-melodix text-white noise-overlay">
+      {/* Navbar */}
+      <Navbar activeTab={activeTab} onTabChange={setActiveTab} />
 
-          {(currentPlaylist ? playlists[currentPlaylist] : songs).map((song, index) => (
-            <li key={index} className={`flex justify-between p-2 my-2 rounded-lg cursor-pointer transition ${index === currentSongIndex ? 'bg-green-500' : 'bg-gray-800 hover:bg-blue-600'}`}>
-              <span onClick={() => playSong(index)}>{song.name}</span>
-              <button onClick={() => deleteSong(index)}><Trash size={16} /></button>
-            </li>
-          ))}
-        </ul> */}
-
-        <ul className="w-full mt-6 bg-black p-4 rounded-lg shadow-lg">
-          {(currentPlaylist && playlists[currentPlaylist] ? playlists[currentPlaylist] : songs).map((song, index) => (
-            <li key={index} className={`flex justify-between p-2 my-2 rounded-lg cursor-pointer transition ${index === currentSongIndex ? 'bg-green-500' : 'bg-gray-800 hover:bg-blue-600'}`}>
-              <span onClick={() => playSong(index)}>{song.name}</span>
-              <button onClick={() => deleteSong(index)}>🗑</button>
-            </li>
-          ))}
-        </ul>
-
+      {/* Background decorations */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-pink-500/20 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-cyan-500/5 rounded-full blur-3xl" />
       </div>
-      <div className="w-full md:w-1/3 flex flex-col items-center p-6">
-        {currentSongIndex !== null && currentPlaylist && (
-          <div className="bg-black p-4 rounded-lg w-full text-center shadow-lg">
-            <h2 className="text-xl font-semibold mb-2">Now Playing</h2>
-            <p className="text-lg">{playlists[currentPlaylist][currentSongIndex]?.name}</p>
-            <input type="range" value={progress} onChange={handleSeek} className="w-full mt-4" />
-            <div className="flex justify-center gap-4 mt-4">
-              <button className="btn btn-outline" onClick={playPrevious}><SkipBack size={24} /></button>
-              <button className="btn btn-outline" onClick={togglePlayPause}>{isPlaying ? <Pause size={24} /> : <Play size={24} />}</button>
-              <button className="btn btn-outline" onClick={playNext}><SkipForward size={24} /></button>
+      
+      <div className="relative z-10 container mx-auto px-4 pt-24 pb-24 md:pb-12">
+        {activeTab === "home" && <Header title="Melodix" />}
+        
+        {renderContent()}
+        
+        {/* Footer */}
+        <footer className="mt-16 text-center">
+          <p className="text-sm text-gray-600">
+            Made with <span className="text-pink-500">♥</span> by Melodix Team
+          </p>
+        </footer>
+      </div>
+
+      {/* Mini Player (visible when not on home and song is playing) */}
+      {activeTab !== "home" && currentSong && (
+        <div className="fixed bottom-16 md:bottom-0 left-0 right-0 z-40 glass-card border-t border-white/10">
+          <div className="container mx-auto px-4 py-3">
+            <div className="flex items-center gap-4">
+              {/* Song info */}
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+                  {isPlaying ? (
+                    <div className="flex gap-0.5 items-end h-4">
+                      {[...Array(3)].map((_, i) => (
+                        <div
+                          key={i}
+                          className="w-1 bg-white rounded-full music-bar"
+                          style={{ height: "12px" }}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-white text-lg">♪</span>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium text-white truncate">{currentSong.name}</p>
+                  <p className="text-xs text-gray-400 truncate">{currentSong.artist || "Your Library"}</p>
+                </div>
+              </div>
+
+              {/* Controls */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={playPrevious}
+                  className="p-2 rounded-lg text-gray-400 hover:text-white transition-colors"
+                >
+                  <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+                    <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+                  </svg>
+                </button>
+                <button
+                  onClick={togglePlayPause}
+                  className="p-3 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white"
+                >
+                  {isPlaying ? (
+                    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+                      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+                      <path d="M8 5v14l11-7z"/>
+                    </svg>
+                  )}
+                </button>
+                <button
+                  onClick={playNext}
+                  className="p-2 rounded-lg text-gray-400 hover:text-white transition-colors"
+                >
+                  <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+                    <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+                  </svg>
+                </button>
+              </div>
+
+              {/* Progress */}
+              <div className="hidden md:block w-48">
+                <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
-        )}
-      </div>
-      <audio ref={audioRef} controls className="hidden" />
+        </div>
+      )}
+
+      {/* Hidden audio element */}
+      <audio ref={audioRef} className="hidden" />
     </div>
   );
 }
