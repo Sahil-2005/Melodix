@@ -216,13 +216,26 @@ class MelodixDB {
       songs: songs.map((song) => {
         // Ensure we preserve all important fields
         const savedSong = {
-          ...song,
-          // Don't store blob URLs, only references
-          url: song.isOffline ? null : song.url,
-          audioId: song.audioId || null,
+          id: song.id,
+          audioId: song.audioId || song.id,  // Ensure audioId is set
+          name: song.name,
+          artist: song.artist,
+          duration: song.duration,
           isOffline: song.isOffline || false,
+          source: song.source,
+          dateAdded: song.dateAdded,
+          // For streaming songs, preserve the URL; for offline, set to null
+          url: song.isOffline ? null : song.url,
+          // Preserve other metadata
+          image: song.image,
+          album: song.album,
+          genre: song.genre,
+          jamendoId: song.jamendoId,
+          license: song.license,
+          type: song.type,
+          isFromSearch: song.isFromSearch,
         };
-        console.log("Saving song to IndexedDB:", savedSong.name, "audioId:", savedSong.audioId, "isOffline:", savedSong.isOffline);
+        console.log("Saving song to playlist:", savedSong.name, "audioId:", savedSong.audioId, "isOffline:", savedSong.isOffline);
         return savedSong;
       }),
       dateCreated: existing?.dateCreated || new Date().toISOString(),

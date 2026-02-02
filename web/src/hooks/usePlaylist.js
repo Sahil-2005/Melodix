@@ -76,6 +76,7 @@ export default function usePlaylist() {
 
     const savePlaylists = async () => {
       try {
+        console.log("Saving all playlists to IndexedDB...");
         for (const [name, songs] of Object.entries(playlists)) {
           console.log(`Saving playlist "${name}" with ${songs.length} songs:`, songs.map(s => ({
             name: s.name,
@@ -85,12 +86,15 @@ export default function usePlaylist() {
           // Save playlist metadata (without blob URLs)
           await melodixDB.savePlaylist(name, songs);
         }
+        console.log("All playlists saved successfully");
       } catch (error) {
         console.error("Failed to save playlists:", error);
       }
     };
 
-    savePlaylists();
+    // Debounce the save to avoid too many writes
+    const timeoutId = setTimeout(savePlaylists, 500);
+    return () => clearTimeout(timeoutId);
   }, [playlists, isLoading]);
 
   // Save current playlist selection
@@ -157,25 +161,26 @@ export default function usePlaylist() {
    * Add a single song to a playlist (creates playlist if needed)
    */
   const addSingleSongToPlaylist = useCallback((song, playlistName) => {
-    if (!playlistName || !playlists[playlistName]) {
-      // Create playlist if it doesn't exist
-      setPlaylists((prev) => ({
+    console.log("addSingleSongToPlaylist called:", song.name, "to playlist:", playlistName);
+    
+    setPlaylists((prev) => {
+      const existingPlaylist = prev[playlistName] || [];
+      const newPlaylists = {
         ...prev,
-        [playlistName]: [song],
-      }));
-    } else {
-      setPlaylists((prev) => ({
-        ...prev,
-        [playlistName]: [...prev[playlistName], song],
-      }));
-    }
-  }, [playlists]);
+        [playlistName]: [...existingPlaylist, song],
+      };
+      console.log("Updated playlists state:", Object.keys(newPlaylists), "songs in", playlistName, ":", newPlaylists[playlistName].length);
+      return newPlaylists;
+    });
+  }, []);  // No dependencies needed since we use functional update
 
   /**
    * Add an audio file (from upload) - saves to IndexedDB
    */
   const addAudioFile = useCallback(async (file, playlistName, metadata = {}) => {
     try {
+      console.log("addAudioFile called:", file.name, "playlist:", playlistName);
+      
       // Save the audio blob to IndexedDB
       const audioRecord = await melodixDB.saveAudioFile(file, {
         name: metadata.name || file.name.replace(/\.[^/.]+$/, ""),
@@ -183,9 +188,12 @@ export default function usePlaylist() {
         originalName: file.name,
         ...metadata,
       });
+      
+      console.log("Audio saved to IndexedDB:", audioRecord.id, audioRecord.name);
 
       // Create a blob URL for playback
       const blobUrl = await melodixDB.getAudioUrl(audioRecord.id);
+      console.log("Blob URL created:", blobUrl ? "success" : "failed");
 
       // Create song object with reference to stored audio
       const song = {
@@ -202,7 +210,10 @@ export default function usePlaylist() {
 
       // Add to playlist
       if (playlistName) {
+        console.log("Adding song to playlist:", playlistName);
         addSingleSongToPlaylist(song, playlistName);
+      } else {
+        console.warn("No playlist specified, song saved but not added to playlist");
       }
 
       return song;

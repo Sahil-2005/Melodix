@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Search, Play, Plus, Download, Loader2, Music, ExternalLink, X, WifiOff, Check, Pause, Volume2, AlertTriangle } from "lucide-react";
 
 // iTunes Search API - Very reliable, no rate limits, 30-second previews
@@ -33,6 +33,21 @@ export default function MusicSearch({
   const [showPlaylistModal, setShowPlaylistModal] = useState(null);
   const [downloadingTracks, setDownloadingTracks] = useState(new Set());
   const [savedTracks, setSavedTracks] = useState(new Set());
+  const dropdownRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowPlaylistModal(null);
+      }
+    };
+
+    if (showPlaylistModal) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showPlaylistModal]);
 
   // Stop preview when main player starts
   useEffect(() => {
@@ -381,11 +396,11 @@ export default function MusicSearch({
           <h3 className="text-lg font-semibold text-gray-300 mb-4">
             Search Results ({results.length})
           </h3>
-          <div className="grid gap-3">
+          <div className="grid gap-3 overflow-visible">
             {results.map((track) => (
               <div
                 key={track.id}
-                className={`group relative flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 ${
+                className={`group relative flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 overflow-visible ${
                   isTrackPlaying(track)
                     ? "bg-gradient-to-r from-green-500/20 to-cyan-500/20 border border-green-500/30"
                     : previewTrack?.id === track.id
@@ -486,7 +501,7 @@ export default function MusicSearch({
                     )}
                   </button>
                   {/* Add to Playlist */}
-                  <div className="relative">
+                  <div className="relative" ref={showPlaylistModal === track.id ? dropdownRef : null}>
                     <button
                       onClick={() => setShowPlaylistModal(showPlaylistModal === track.id ? null : track.id)}
                       className="p-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:scale-105 transition-transform duration-200"
@@ -497,7 +512,10 @@ export default function MusicSearch({
 
                     {/* Playlist Dropdown */}
                     {showPlaylistModal === track.id && (
-                      <div className="absolute right-0 top-full mt-2 w-64 glass-card rounded-xl p-2 z-50 border border-white/10">
+                      <div className="fixed inset-0 z-[99]" onClick={() => setShowPlaylistModal(null)} />
+                    )}
+                    {showPlaylistModal === track.id && (
+                      <div className="absolute right-0 bottom-full mb-2 w-64 rounded-xl p-2 z-[100] border border-white/20 bg-gray-900/95 backdrop-blur-xl shadow-2xl shadow-black/50 max-h-80 overflow-y-auto">
                         <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 mb-2">
                           <span className="text-sm font-medium text-gray-300">Add to Playlist</span>
                           <button

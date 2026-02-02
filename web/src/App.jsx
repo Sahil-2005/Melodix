@@ -75,18 +75,35 @@ export default function App() {
   // Handle file upload - saves to IndexedDB
   const handleFileUpload = useCallback(
     async (files) => {
+      // Ensure there's a playlist to add files to
+      let targetPlaylist = currentPlaylist;
+      
+      // If no playlist selected, create or use "My Music" as default
+      if (!targetPlaylist) {
+        targetPlaylist = "My Music";
+        if (!playlists["My Music"]) {
+          // Create the playlist first
+          createPlaylist("My Music");
+        }
+        // Select it after a small delay to ensure state is updated
+        setTimeout(() => selectPlaylist("My Music"), 0);
+      }
+      
+      console.log("[App] Uploading", files.length, "files to playlist:", targetPlaylist);
+      
       for (const file of files) {
         try {
-          const song = await addAudioFile(file, currentPlaylist);
-          if (!currentPlaylist) {
-            setUnassignedSongs((prev) => [...prev, song]);
-          }
+          console.log("[App] Processing file:", file.name);
+          const song = await addAudioFile(file, targetPlaylist);
+          console.log("[App] File uploaded successfully:", song.name, "audioId:", song.audioId);
         } catch (error) {
-          console.error("Failed to add file:", error);
+          console.error("[App] Failed to add file:", file.name, error);
         }
       }
+      
+      console.log("[App] All files uploaded");
     },
-    [currentPlaylist, addAudioFile]
+    [currentPlaylist, playlists, addAudioFile, createPlaylist, selectPlaylist]
   );
 
   // Handle playlist creation
