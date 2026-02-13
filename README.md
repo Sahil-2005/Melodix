@@ -7,6 +7,7 @@
 A beautifully crafted cross-platform music player with stunning visuals, smooth animations, and an intuitive interface. Built with modern web and mobile technologies for the ultimate listening experience.
 
 [![GitHub](https://img.shields.io/badge/GitHub-Melodix-181717?style=for-the-badge&logo=github)](https://github.com/Sahil-2005/Melodix)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Visit_Now-success?style=for-the-badge&logo=vercel)](https://melodix-ten.vercel.app/)
 ![Version](https://img.shields.io/badge/Version-1.0.0-purple?style=for-the-badge)
 ![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react)
 ![Expo](https://img.shields.io/badge/Expo-54-000020?style=for-the-badge&logo=expo)
@@ -21,7 +22,7 @@ Melodix is available on multiple platforms:
 
 | Platform | Technology | Status |
 |----------|------------|--------|
-| 🌐 Web | React 19 + Vite | ✅ Ready |
+| [🌐 Web](https://melodix-ten.vercel.app/) | React 19 + Vite | ✅ Ready |
 | 📱 Mobile | React Native + Expo | ✅ Ready |
 
 ---
